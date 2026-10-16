@@ -28,6 +28,5 @@ yarn-error.log*
 .netlify
 lib/bs
 public/*.LICENSE.txt
-package-lock.json
 public/app.js
 public/app.css
