@@ -109,7 +109,10 @@ src/
 
 **State** is a single `{ project, runtime }` object owned by `useReducer`. `project` is what you
 edit; `runtime` is what is running. Every reducer case is a pure function, so the whole engine,
-including the hero feature, is tested without a browser (`src/engine/runtime.test.ts`).
+including the hero feature, is tested without a browser (`src/engine/runtime.test.ts`). A seeded
+property test (`src/state/invariants.test.ts`) also drives the reducer through tens of thousands of
+random runs, drags, deletes and swaps, checking after every step that sprites stay on the stage,
+ids stay unique and no thread or speech bubble is left behind.
 
 **The runtime** gives each running script a *thread*: a stack of frames (one per nested `repeat`)
 and a program counter. Each animation frame, `tick` steps every thread until it yields. Motion and
@@ -144,3 +147,5 @@ focus is always visible, and animations respect `prefers-reduced-motion`.
   add later; neither was asked for, so neither is included.
 - Collision detection is circle-based with a fixed sprite radius, which is accurate enough for the
   single cat costume and keeps the hero feature deterministic (and testable).
+- A running script runs the blocks it had when it started, so edits to it take effect the next
+  time it runs (Scratch applies them live). Deleting a running script stops it.
