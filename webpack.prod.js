@@ -11,8 +11,8 @@ module.exports = merge([
     optimization: {
       minimize: true,
       minimizer: [
-        // For webpack@5 you can use the `...` syntax to extend existing minimizers (i.e. `terser-webpack-plugin`), uncomment the next line
-        // `...`,
+        // `...` keeps webpack's default JS minifier (terser) alongside the CSS one.
+        `...`,
         new CssMinimizerPlugin(),
       ],
     },
