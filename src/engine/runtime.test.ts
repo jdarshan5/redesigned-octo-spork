@@ -5,7 +5,7 @@ import { createBlock } from "../model/blocks.ts";
 import { createHeroDemoProject, createScript, createSprite } from "../model/project.ts";
 import type { AppState, Block, Sprite } from "../model/types.ts";
 import { initState, reducer } from "../state/reducer.ts";
-import { FRAME_MS } from "./runtime.ts";
+import { BUBBLE_TEXT_LIMIT, FRAME_MS } from "./runtime.ts";
 
 const block = (kind: BlockKind, inputs?: Record<string, string>): Block => createBlock(kind, inputs);
 const repeat = (times: number, body: Block[]): Block => ({ ...block("control_repeat", { TIMES: String(times) }), body });
@@ -99,6 +99,16 @@ test("say for N seconds shows a bubble and then clears it", () => {
   assert.equal(state.runtime.threads.length, 0);
 });
 
+test("bubble text is capped like Scratch's, so a bubble always fits on the stage", () => {
+  const long = "x".repeat(BUBBLE_TEXT_LIMIT + 50);
+  const cat = createSprite({
+    name: "Cat",
+    scripts: [createScript(0, 0, [block("looks_sayforsecs", { MESSAGE: long, SECS: "1" })])],
+  });
+  const state = reducer(reducer(world([cat]), { type: "greenFlag" }), { type: "tick", now: 0 });
+  assert.equal(state.runtime.bubbles[cat.id].text, long.slice(0, BUBBLE_TEXT_LIMIT));
+});
+
 test("think for N seconds uses a thought bubble", () => {
   const cat = createSprite({
     name: "Cat",
@@ -133,6 +143,42 @@ test("clicking a running script stops it", () => {
   assert.equal(spriteNamed(state, "Cat").x, 1);
 });
 
+test("deleting a running script stops it and takes its bubble down", () => {
+  const cat = createSprite({
+    name: "Cat",
+    scripts: [
+      createScript(0, 0, [flag(), repeat(100, [move(1)])]),
+      createScript(0, 200, [flag(), block("looks_sayforsecs", { MESSAGE: "Hi", SECS: "5" }), repeat(100, [move(1)])]),
+    ],
+  });
+  const [walker, talker] = cat.scripts;
+  let state = reducer(reducer(world([cat]), { type: "greenFlag" }), { type: "tick", now: 0 });
+  assert.ok(state.runtime.bubbles[cat.id]);
+
+  // The code area removes the script, then stops it (see MidArea and DragProvider).
+  state = reducer(state, { type: "editScripts", spriteId: cat.id, edit: (scripts) => scripts.filter((s) => s !== talker) });
+  state = reducer(state, { type: "stopScript", scriptId: talker.id });
+  assert.deepEqual(state.runtime.threads.map((t) => t.scriptId), [walker.id], "the other script keeps running");
+  assert.equal(state.runtime.bubbles[cat.id], undefined);
+
+  state = reducer(state, { type: "stopScript", scriptId: walker.id });
+  const x = spriteNamed(state, "Cat").x;
+  state = reducer(state, { type: "tick", now: FRAME_MS });
+  assert.equal(state.runtime.threads.length, 0);
+  assert.equal(spriteNamed(state, "Cat").x, x, "nothing invisible keeps moving the sprite");
+});
+
+test("a script deleted after a hero swap moved its thread still stops", () => {
+  let state = heroWorld(true);
+  const walker = spriteNamed(state, "Cat 1").scripts[0];
+  for (let frame = 0; frame < 8; frame += 1) state = reducer(state, { type: "tick", now: frame * FRAME_MS });
+  assert.equal(state.runtime.swaps.length, 1);
+  assert.equal(state.runtime.threads.find((t) => t.scriptId === walker.id)?.spriteId, spriteNamed(state, "Cat 2").id);
+
+  state = reducer(state, { type: "stopScript", scriptId: walker.id });
+  assert.deepEqual(state.runtime.threads.map((t) => t.spriteId), [spriteNamed(state, "Cat 1").id]);
+});
+
 test("stop ends every thread and takes bubbles down", () => {
   const cat = createSprite({
     name: "Cat",
@@ -163,6 +209,21 @@ test("updateSprite keeps sprites on the stage and names non-empty", () => {
   assert.equal(spriteNamed(state, "Cat").direction, -90);
   state = reducer(state, { type: "updateSprite", spriteId: cat.id, patch: { name: "   " } });
   assert.equal(state.project.sprites[0].name, "Cat");
+});
+
+test("renaming a sprite to a taken name makes it unique, like Scratch", () => {
+  const a = createSprite({ name: "Sprite1" });
+  const b = createSprite({ name: "Sprite2" });
+  const cat = createSprite({ name: "Cat" });
+  let state = reducer(world([a, b, cat]), { type: "updateSprite", spriteId: cat.id, patch: { name: " Sprite1 " } });
+  assert.deepEqual(state.project.sprites.map((s) => s.name), ["Sprite1", "Sprite2", "Sprite3"]);
+  state = reducer(state, { type: "updateSprite", spriteId: cat.id, patch: { name: "Sprite3" } });
+  assert.equal(state.project.sprites[2].name, "Sprite3", "keeping its own name is not a clash");
+
+  // Patches without a name (dragging on the stage) never rename, even an existing clash.
+  const twin = createSprite({ name: "Sprite1" });
+  state = reducer(world([a, twin]), { type: "updateSprite", spriteId: twin.id, patch: { x: 50 } });
+  assert.equal(state.project.sprites[1].name, "Sprite1");
 });
 
 function heroWorld(heroEnabled: boolean): AppState {

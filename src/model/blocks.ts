@@ -182,6 +182,13 @@ export function arrangeScripts(
   return scripts.map((s) => placed.get(s.id) ?? s);
 }
 
+/** Moves (x, y) down and to the right until no script starts there, so copies never hide one another. */
+export function freeSpot(scripts: Script[], x: number, y: number, step = 32): { x: number; y: number } {
+  let spot = { x, y };
+  while (scripts.some((s) => s.x === spot.x && s.y === spot.y)) spot = { x: spot.x + step, y: spot.y + step };
+  return spot;
+}
+
 export const setInput = (scripts: Script[], blockId: string, name: string, value: string): Script[] =>
   editEachScript(scripts, (blocks) =>
     editBlock(blocks, blockId, (block) => ({ ...block, inputs: { ...block.inputs, [name]: value } }))

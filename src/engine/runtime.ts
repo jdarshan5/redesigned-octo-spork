@@ -17,6 +17,8 @@ import { fenced, moveSteps, toNumber, touchingPairs, turnBy } from "./geometry.t
 
 export const FRAME_MS = 1000 / 30;
 const MAX_OPS_PER_TICK = 10000;
+/** Scratch's limit on bubble text, which also keeps the longest bubble on the stage. */
+export const BUBBLE_TEXT_LIMIT = 330;
 
 export const createRuntime = (): Runtime => ({
   threads: [],
@@ -132,7 +134,7 @@ export function stepThread(
       case "looks_thinkforsecs":
         bubble = {
           kind: block.kind === "looks_sayforsecs" ? "say" : "think",
-          text: String(inputs.MESSAGE ?? ""),
+          text: String(inputs.MESSAGE ?? "").slice(0, BUBBLE_TEXT_LIMIT),
           token,
         };
         bubbleToken = token;
@@ -278,6 +280,15 @@ export function toggleScript(state: AppState, spriteId: string, scriptId: string
   }
   return startScripts(state, spriteId, [{ id: scriptId, x: 0, y: 0, blocks }]);
 }
+
+/**
+ * Stops a script that was deleted while running, so no thread outlives its blocks.
+ * Script ids are unique across sprites, so this also finds a thread a hero swap moved.
+ */
+export const stopScript = (state: AppState, scriptId: string): AppState => ({
+  ...state,
+  runtime: stopThreads(state.runtime, (t) => t.scriptId === scriptId),
+});
 
 /** Clicking a sprite on the stage runs its "when this sprite clicked" scripts. */
 export function spriteClicked(state: AppState, spriteId: string): AppState {

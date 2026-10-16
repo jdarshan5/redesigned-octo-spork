@@ -8,6 +8,7 @@ import {
   deleteBlock,
   detachStack,
   findScript,
+  freeSpot,
   setInput,
   stackFrom,
 } from "./blocks.ts";
@@ -99,6 +100,14 @@ test("arrangeScripts lines scripts up in reading order", () => {
   const arranged = arrangeScripts(scripts, (s) => heights[s.id], { x: 20, y: 20, gap: 10 });
   assert.deepEqual(arranged.map((s) => s.id), ["low", "high", "mid"], "array order is kept");
   assert.deepEqual(arranged.map((s) => [s.x, s.y]), [[20, 180], [20, 20], [20, 130]]);
+});
+
+test("freeSpot cascades copies past scripts that already start there", () => {
+  const at = (x: number, y: number): Script => ({ id: `${x},${y}`, x, y, blocks: [] });
+  assert.deepEqual(freeSpot([], 40, 40), { x: 40, y: 40 });
+  assert.deepEqual(freeSpot([at(40, 40)], 40, 40), { x: 72, y: 72 });
+  assert.deepEqual(freeSpot([at(40, 40), at(72, 72), at(200, 10)], 40, 40), { x: 104, y: 104 });
+  assert.deepEqual(freeSpot([at(41, 40)], 40, 40), { x: 40, y: 40 }, "only an exact match hides a copy");
 });
 
 test("setInput, findScript, stackFrom and cloneStack", () => {

@@ -13,12 +13,30 @@ const toTop = (y: number) => HALF_HEIGHT - y;
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const CLICK_SLOP = 3;
 
+/**
+ * A speech or thought bubble, Scratch style: above and to the right of the
+ * sprite, flipped to the left when there is no room, and kept on the stage.
+ */
 function Bubble({ sprite, bubble }: { sprite: Sprite; bubble: BubbleModel }) {
-  const flip = sprite.x > 100;
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  // The size depends on the text; it is measured before paint, in stage units.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) setSize({ width: el.offsetWidth, height: el.offsetHeight });
+  }, [bubble.text]);
+
+  const right = toLeft(sprite.x) + 22;
+  const flip = right + size.width > STAGE_WIDTH;
+  const left = flip ? toLeft(sprite.x) - 22 - size.width : right;
   return (
     <div
+      ref={ref}
       className={`bubble bubble-${bubble.kind} ${flip ? "bubble-flip" : ""}`}
-      style={{ left: toLeft(sprite.x) + (flip ? -22 : 22), top: toTop(sprite.y) - 44 }}
+      style={{
+        left: clamp(left, 0, STAGE_WIDTH - size.width),
+        top: clamp(toTop(sprite.y) - 44 - size.height, 0, STAGE_HEIGHT - size.height),
+      }}
     >
       {bubble.text}
     </div>

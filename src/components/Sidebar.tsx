@@ -46,10 +46,17 @@ export default function Sidebar() {
     [press, dispatch, spriteId]
   );
 
+  // A category picked on the rail stays highlighted until the palette is scrolled by hand: near
+  // the bottom, the palette cannot scroll far enough to bring the picked section to the top.
+  const picked = useRef(false);
+  const release = useCallback(() => {
+    picked.current = false;
+  }, []);
+
   // Highlight the category whose section is at the top of the palette.
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || picked.current) return;
     if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
       setActive(CATEGORIES[CATEGORIES.length - 1].id);
       return;
@@ -65,6 +72,7 @@ export default function Sidebar() {
   const jumpTo = (id: Category) => {
     const el = scrollRef.current;
     const section = sections.current[id];
+    picked.current = true;
     setActive(id);
     if (el && section) el.scrollTo({ top: section.offsetTop - 8, behavior: "smooth" });
   };
@@ -89,6 +97,10 @@ export default function Sidebar() {
       <div
         ref={scrollRef}
         onScroll={onScroll}
+        onWheel={release}
+        onTouchStart={release}
+        onPointerDown={release}
+        onKeyDown={release}
         className="palette thin-scroll"
       >
         {CATEGORIES.map((category) => (

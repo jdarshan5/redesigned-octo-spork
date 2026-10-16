@@ -13,7 +13,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isHat } from "../blocks/catalog.ts";
 import { StackView } from "../components/BlockView.tsx";
-import { applyDrop, cloneStack, findScript, type DropTarget } from "../model/blocks.ts";
+import { applyDrop, cloneStack, findScript, freeSpot, type DropTarget } from "../model/blocks.ts";
 import { uid } from "../model/ids.ts";
 import type { Block, Script } from "../model/types.ts";
 import { useStore } from "../state/store.tsx";
@@ -27,6 +27,8 @@ export interface DragPayload {
    * scripts (they may have changed under a hero swap). Null for palette drags.
    */
   restore: ((current: Script[]) => Script[]) | null;
+  /** The sprite to restore to, if a hero swap has since moved the stack's scripts to another sprite. */
+  owner?: () => string;
   /** Where the stack came from, so copies can be placed nearby. */
   origin: { x: number; y: number } | null;
   /** Set when a whole script is being moved: it keeps its id (and its running thread). */
@@ -139,7 +141,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
   };
 
   const restore = (s: Session) => {
-    if (s.restore) dispatch({ type: "editScripts", spriteId: s.spriteId, edit: s.restore });
+    if (s.restore) dispatch({ type: "editScripts", spriteId: s.owner ? s.owner() : s.spriteId, edit: s.restore });
   };
 
   const freeScript = (s: Session, stack: Block[], x: number, y: number): Script => ({
@@ -176,13 +178,23 @@ export function DragProvider({ children }: { children: ReactNode }) {
     }
     if (dropZone && dropZone.startsWith("sprite:") && dropZone.slice(7) !== s.spriteId) {
       const at = s.origin || { x: 32, y: 32 };
-      const copy: Script = { id: uid("script"), x: at.x, y: at.y, blocks: cloneStack(s.stack) };
-      dispatch({ type: "editScripts", spriteId: dropZone.slice(7), edit: (scripts) => [...scripts, copy] });
+      const blocks = cloneStack(s.stack);
+      const id = uid("script");
+      dispatch({
+        type: "editScripts",
+        spriteId: dropZone.slice(7),
+        edit: (scripts) => [...scripts, { id, ...freeSpot(scripts, at.x, at.y), blocks }],
+      });
+      restore(s);
+      return;
+    }
+    if (dropZone !== "palette") {
       restore(s);
       return;
     }
     // Dropping on the palette deletes the blocks: they are already detached.
-    if (dropZone !== "palette") restore(s);
+    // A whole script deleted while it runs stops, as in Scratch.
+    if (s.scriptId) dispatch({ type: "stopScript", scriptId: s.scriptId });
   };
 
   /**
@@ -192,6 +204,8 @@ export function DragProvider({ children }: { children: ReactNode }) {
   const press = useCallback((event: React.PointerEvent<Element>, { spriteId, begin, tap }: PressOptions) => {
     if (event.button !== 0 || live.current.session) return;
     event.stopPropagation();
+    // preventDefault keeps focus where it is, so commit a field being edited, as clicking elsewhere would.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
     const { pointerId } = event;
@@ -203,6 +217,7 @@ export function DragProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("contextmenu", onContextMenu, true);
     };
     function onMove(e: PointerEvent) {
       if (e.pointerId !== pointerId) return;
@@ -211,6 +226,11 @@ export function DragProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (Math.hypot(e.clientX - startX, e.clientY - startY) < DRAG_THRESHOLD) return;
+      // Another finger started a drag first: one drag at a time.
+      if (live.current.session) {
+        cleanup();
+        return;
+      }
       const payload = begin();
       if (!payload) {
         cleanup();
@@ -244,9 +264,15 @@ export function DragProvider({ children }: { children: ReactNode }) {
       setLive({ session: null, target: null, zone: null });
       if (s) restore(s);
     }
+    // A long press or Ctrl+click opens the block's menu instead: it is neither a tap nor a drag.
+    // Capture phase, because the block stops the event from bubbling.
+    function onContextMenu() {
+      if (!started) cleanup();
+    }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("contextmenu", onContextMenu, true);
     // `track`, `drop` and `restore` only read refs and the stable dispatch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

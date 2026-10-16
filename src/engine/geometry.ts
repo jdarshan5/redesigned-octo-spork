@@ -22,7 +22,11 @@ export function toNumber(value: string | number | undefined): number {
 }
 
 /** Normalises a direction to Scratch's (-180, 180] range. */
-export const wrapDirection = (degrees: number): number => ((((degrees + 179) % 360) + 360) % 360) - 179;
+export function wrapDirection(degrees: number): number {
+  const wrapped = tidy(180 - ((((180 - degrees) % 360) + 360) % 360));
+  // Rounding can turn a value just above -180 into -180, which this range writes as 180.
+  return wrapped === -180 ? 180 : wrapped;
+}
 
 /** Keeps a sprite's centre on the stage. */
 export const fenced = (x: number, y: number): { x: number; y: number } => ({

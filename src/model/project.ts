@@ -33,6 +33,15 @@ export function nextSpriteName(sprites: Sprite[]): string {
   return `Sprite${n}`;
 }
 
+/** Scratch's rule for a taken name: drop trailing digits and count up from 2 (Cat → Cat2, Sprite1 → Sprite2). */
+export function unusedName(name: string, taken: string[]): string {
+  if (!taken.includes(name)) return name;
+  const base = name.replace(/\d+$/, "");
+  let n = 2;
+  while (taken.includes(`${base}${n}`)) n += 1;
+  return `${base}${n}`;
+}
+
 export function createInitialProject(): Project {
   const sprite = createSprite({ name: "Sprite1" });
   return { sprites: [sprite], selectedId: sprite.id, heroEnabled: true };

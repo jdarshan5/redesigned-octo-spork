@@ -27,7 +27,12 @@ module.exports = {
                   [
                     "postcss-preset-env",
                     {
-                      // Options
+                      features: {
+                        // Its polyfill rewrites `:focus:not(:focus-visible)` to also match
+                        // `:focus:not(.focus-visible)`, which hides every focus ring without
+                        // the polyfill's script. Browsers support :focus-visible natively.
+                        "focus-visible-pseudo-class": false,
+                      },
                     },
                   ],
                 ],

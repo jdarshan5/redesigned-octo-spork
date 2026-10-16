@@ -35,7 +35,7 @@ function BlockInput({ block, name, input, readOnly, onInput }: BlockInputProps) 
         value={value}
         readOnly={readOnly}
         tabIndex={readOnly ? -1 : 0}
-        inputMode={isNumber ? "decimal" : "text"}
+        // The full keyboard even for numbers: iOS's decimal pad has no minus key, so "move -10" could not be typed.
         aria-label={name.toLowerCase()}
         spellCheck={false}
         onPointerDown={readOnly ? undefined : (e) => e.stopPropagation()}

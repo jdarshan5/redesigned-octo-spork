@@ -24,7 +24,7 @@ export default function TopBar() {
   const { sprites, heroEnabled } = state.project;
 
   const loadDemo = () => {
-    const hasWork = sprites.some((s) => s.scripts.length > 0);
+    const hasWork = sprites.length > 1 || sprites.some((s) => s.scripts.length > 0);
     if (hasWork && !window.confirm("Replace the current project with the collision demo from the brief?")) return;
     dispatch({ type: "loadProject", project: createHeroDemoProject() });
   };
@@ -33,7 +33,7 @@ export default function TopBar() {
     <header className="app-header flex-none h-14 flex items-center gap-3 px-3 sm:px-4 text-white">
       <Logo />
       <div className="min-w-0 flex items-baseline gap-3">
-        <h1 className="text-lg font-black tracking-tight whitespace-nowrap">Scratch Editor</h1>
+        <h1 className="text-lg font-black tracking-tight truncate">Scratch Editor</h1>
         <span className="hidden md:inline truncate text-xs font-semibold text-white text-opacity-75">
           Snap blocks together, press the flag, watch sprites collide
         </span>

@@ -335,6 +335,15 @@ body.is-dragging * {
   touch-action: none;
   user-select: none;
 }
+/* As in Scratch, swiping along the palette scrolls it and dragging across it pulls a block out. */
+.blk-wrap.blk-palette {
+  touch-action: pan-y;
+}
+@media (max-width: 639px) {
+  .blk-wrap.blk-palette {
+    touch-action: pan-x; /* the palette is a horizontal strip on phones */
+  }
+}
 
 .blk-list {
   display: flex;
@@ -747,7 +756,6 @@ body.is-dragging * {
   overflow: hidden;
   border-radius: 12px;
   background: #fff;
-  touch-action: none;
 }
 /* The frame's edge is drawn on top, so sprites at the border do not hide it. */
 .stage-frame::after {
@@ -840,12 +848,10 @@ body.is-dragging * {
   text-align: center;
   overflow-wrap: break-word;
   pointer-events: none;
-  transform: translateY(-100%);
   transform-origin: bottom left;
   animation: bubble-pop 0.18s ease-out;
 }
 .bubble-flip {
-  transform: translate(-100%, -100%);
   transform-origin: bottom right;
 }
 .bubble-say::after {

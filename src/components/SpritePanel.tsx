@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createSprite, nextSpriteHue, nextSpriteName } from "../model/project.ts";
 import type { Sprite } from "../model/types.ts";
 import { useDrag } from "../dnd/DragProvider.tsx";
@@ -8,17 +8,18 @@ import Icon from "./Icon.tsx";
 import SpriteArt from "./SpriteArt.tsx";
 
 const randomInt = (min: number, max: number) => Math.round(min + Math.random() * (max - min));
+/** Room the round add button takes at the bottom of the sprite list. */
+const FAB_CLEARANCE = 72;
 
 interface FieldProps {
   label: string;
   icon: string;
   value: string;
   onCommit: (value: string) => void;
-  numeric?: boolean;
 }
 
 /** A labelled input that holds a draft while focused and commits on blur or Enter (Escape reverts). */
-function Field({ label, icon, value, onCommit, numeric = false }: FieldProps) {
+function Field({ label, icon, value, onCommit }: FieldProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const focused = useRef(value);
   const cancelled = useRef(false);
@@ -36,7 +37,6 @@ function Field({ label, icon, value, onCommit, numeric = false }: FieldProps) {
       <input
         className="field-input"
         value={draft ?? value}
-        inputMode={numeric ? "decimal" : "text"}
         spellCheck={false}
         onFocus={() => {
           focused.current = value;
@@ -67,9 +67,10 @@ function SpriteInfo({ sprite }: { sprite: Sprite }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       <Field label="Sprite" icon="cat" value={sprite.name} onCommit={(name) => patch({ name })} />
-      <Field label="Direction" icon="compass" value={String(Math.round(sprite.direction))} onCommit={numberField("direction")} numeric />
-      <Field label="x" icon="arrows-alt-h" value={String(Math.round(sprite.x))} onCommit={numberField("x")} numeric />
-      <Field label="y" icon="arrows-alt-v" value={String(Math.round(sprite.y))} onCommit={numberField("y")} numeric />
+      {/* No numeric keyboard: iOS's decimal pad has no minus key, and these take negative numbers. */}
+      <Field label="Direction" icon="compass" value={String(Math.round(sprite.direction))} onCommit={numberField("direction")} />
+      <Field label="x" icon="arrows-alt-h" value={String(Math.round(sprite.x))} onCommit={numberField("x")} />
+      <Field label="y" icon="arrows-alt-v" value={String(Math.round(sprite.y))} onCommit={numberField("y")} />
     </div>
   );
 }
@@ -81,6 +82,18 @@ export default function SpritePanel() {
   const { session, zone } = useDrag();
   const { sprites, selectedId } = state.project;
   const running = new Set(state.runtime.threads.map((t) => t.spriteId));
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Keep the selected tile in view, clear of the add button: a new sprite may be added below the fold.
+  useEffect(() => {
+    const list = listRef.current;
+    const tile = list?.querySelector(`[data-drop-sprite="${selectedId}"]`);
+    if (!list || !tile) return;
+    const view = list.getBoundingClientRect();
+    const box = tile.getBoundingClientRect();
+    if (box.top < view.top) list.scrollTop -= view.top - box.top + 12;
+    else if (box.bottom > view.bottom - FAB_CLEARANCE) list.scrollTop += box.bottom - view.bottom + FAB_CLEARANCE;
+  }, [selectedId]);
 
   const addSprite = () =>
     dispatch({
@@ -98,7 +111,7 @@ export default function SpritePanel() {
       <div className="flex-none px-3 pt-3 pb-3 border-b border-gray-100">
         <SpriteInfo sprite={selected} />
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto thin-scroll p-3 pb-20">
+      <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto thin-scroll p-3 pb-20">
         <div className="sprite-grid">
           {sprites.map((s) => {
             const isSelected = s.id === selectedId;
@@ -114,6 +127,8 @@ export default function SpritePanel() {
                 data-drop-sprite={s.id}
                 onClick={select}
                 onKeyDown={(e) => {
+                  // Keys pressed on the delete button inside the tile are the button's.
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     select();

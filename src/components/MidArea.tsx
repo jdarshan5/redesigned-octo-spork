@@ -7,6 +7,7 @@ import {
   deleteBlock,
   detachStack,
   findScript,
+  freeSpot,
   setInput,
   stackFrom,
 } from "../model/blocks.ts";
@@ -58,6 +59,8 @@ export default function MidArea() {
 
   const scriptsRef = useRef(sprite.scripts);
   scriptsRef.current = sprite.scripts;
+  const spritesRef = useRef(state.project.sprites);
+  spritesRef.current = state.project.sprites;
 
   useEffect(() => {
     registerCanvas(canvasRef.current);
@@ -102,6 +105,8 @@ export default function MidArea() {
               current === detached.scripts
                 ? before
                 : [...current, { id: scriptId ?? uid("script"), x: origin.x, y: origin.y, blocks: stack }],
+            // A hero swap moves the scripts as a whole, so whichever sprite holds them now is home.
+            owner: () => spritesRef.current.find((s) => s.scripts === detached.scripts)?.id ?? spriteId,
           };
         },
         tap: () => {
@@ -148,7 +153,8 @@ export default function MidArea() {
                 const script = findScript(list, menu.blockId);
                 const stack = stackFrom(list, menu.blockId);
                 if (!script || stack.length === 0) return list;
-                const copy: Script = { id: uid("script"), x: script.x + 32, y: script.y + 32, blocks: cloneStack(stack) };
+                const at = freeSpot(list, script.x + 32, script.y + 32);
+                const copy: Script = { id: uid("script"), ...at, blocks: cloneStack(stack) };
                 return [...list, copy];
               },
             }),
@@ -157,14 +163,24 @@ export default function MidArea() {
           label: "Delete Block",
           icon: "trash",
           danger: true,
-          onSelect: () => dispatch({ type: "editScripts", spriteId, edit: (list) => deleteBlock(list, menu.blockId) }),
+          onSelect: () => {
+            const script = findScript(scriptsRef.current, menu.blockId);
+            dispatch({ type: "editScripts", spriteId, edit: (list) => deleteBlock(list, menu.blockId) });
+            // Deleting a script's only block deletes the script, which stops it if it runs.
+            if (script && script.blocks.length === 1 && script.blocks[0].id === menu.blockId) {
+              dispatch({ type: "stopScript", scriptId: script.id });
+            }
+          },
         },
       ]
     : [];
 
+  // The canvas never shrinks out from under the visible area: the browser would clamp the scroll
+  // position and the view would jump, e.g. when the lowest script is picked up to be dragged.
+  const view = scrollerRef.current;
   const size = scripts.reduce(
     (acc, s) => ({ width: Math.max(acc.width, s.x + CANVAS_MARGIN), height: Math.max(acc.height, s.y + CANVAS_MARGIN) }),
-    { width: 0, height: 0 }
+    { width: view ? view.scrollLeft + view.clientWidth : 0, height: view ? view.scrollTop + view.clientHeight : 0 }
   );
 
   return (

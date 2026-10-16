@@ -9,9 +9,11 @@ import {
   greenFlag,
   spriteClicked,
   stopAll,
+  stopScript,
   tick,
   toggleScript,
 } from "../engine/runtime.ts";
+import { unusedName } from "../model/project.ts";
 import type { AppState, Block, Project, Script, Sprite } from "../model/types.ts";
 
 export type SpritePatch = Partial<Pick<Sprite, "name" | "x" | "y" | "direction">>;
@@ -28,13 +30,16 @@ export type Action =
   | { type: "stopAll" }
   | { type: "spriteClicked"; spriteId: string }
   | { type: "toggleScript"; spriteId: string; scriptId: string; blocks: Block[] }
+  | { type: "stopScript"; scriptId: string }
   | { type: "tick"; now: number };
 
 export const initState = (project: Project): AppState => ({ project, runtime: createRuntime() });
 
-function patchSprite(sprite: Sprite, patch: SpritePatch): Sprite {
+/** Applies a patch, keeping the sprite on the stage and its name non-empty and unique among `others`. */
+function patchSprite(sprite: Sprite, patch: SpritePatch, others: Sprite[]): Sprite {
   const next = { ...sprite, ...patch };
-  const name = next.name.trim() === "" ? sprite.name : next.name.trim();
+  const typed = (patch.name ?? "").trim();
+  const name = typed === "" ? sprite.name : unusedName(typed, others.map((s) => s.name));
   return { ...next, name, ...fenced(next.x, next.y), direction: wrapDirection(next.direction) };
 }
 
@@ -68,7 +73,9 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         project: {
           ...project,
-          sprites: project.sprites.map((s) => (s.id === action.spriteId ? patchSprite(s, action.patch) : s)),
+          sprites: project.sprites.map((s) =>
+            s.id === action.spriteId ? patchSprite(s, action.patch, project.sprites.filter((o) => o !== s)) : s
+          ),
         },
       };
     case "editScripts":
@@ -93,6 +100,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return spriteClicked(state, action.spriteId);
     case "toggleScript":
       return toggleScript(state, action.spriteId, action.scriptId, action.blocks);
+    case "stopScript":
+      return stopScript(state, action.scriptId);
     case "tick":
       return tick(state, action.now);
   }
