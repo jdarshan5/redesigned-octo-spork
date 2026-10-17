@@ -10,6 +10,11 @@ pure functions, covered by unit tests that run on Node's built-in test runner.
 
 ![The editor: a script running on one of three colour-coded sprites](docs/editor.png)
 
+## Demo
+
+A walkthrough of the editor and the hero feature (about 4½ minutes, no audio) is on Google
+Drive: [watch the demo video](https://drive.google.com/file/d/1x5c0rqOoLJWFQUaOgQaqLNDSzPHE5pD5/view?usp=share_link).
+
 ## Getting started
 
 ```bash
