@@ -10,7 +10,7 @@ interface IconProps {
 export default function Icon({ name, size = 20, className = "" }: IconProps) {
   return (
     <svg className={`fill-current ${className}`} width={size} height={size} aria-hidden="true" focusable="false">
-      <use xlinkHref={`/icons/solid.svg#${name}`} />
+      <use xlinkHref={`icons/solid.svg#${name}`} />
     </svg>
   );
 }

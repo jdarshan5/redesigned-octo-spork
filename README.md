@@ -12,6 +12,9 @@ pure functions, covered by unit tests that run on Node's built-in test runner.
 
 ## Demo
 
+Try it live at **https://jdarshan5.github.io/redesigned-octo-spork/** (deployed to GitHub Pages
+by `.github/workflows/deploy.yml` on every push to `feature/scratch-editor`).
+
 A walkthrough of the editor and the hero feature (about 4½ minutes, no audio) is on Google
 Drive: [watch the demo video](https://drive.google.com/file/d/1x5c0rqOoLJWFQUaOgQaqLNDSzPHE5pD5/view?usp=share_link).
 
